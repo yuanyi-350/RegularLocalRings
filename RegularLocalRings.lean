@@ -1,6 +1,7 @@
 -- This module serves as the root of the `RegularLocalRings` library.
 -- Import modules here that should be built as part of the library.
 
+import «RegularLocalRings».Basic
 import Mathlib
 open IsLocalRing
 
