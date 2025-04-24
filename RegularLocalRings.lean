@@ -1,7 +1,7 @@
 -- This module serves as the root of the `RegularLocalRings` library.
 -- Import modules here that should be built as part of the library.
+
 import «RegularLocalRings».Basic
---test
 import Mathlib
 open IsLocalRing
 
@@ -55,6 +55,9 @@ theorem minGenerators_eq_dimCotangentSpace {R : Type*} [CommRing R] [IsLocalRing
 --Informal proof:  Nakayama
   sorry
 
+--Instance so that Lean knows a quotient of a local ring is a local ring.
+instance {R : Type*} [CommRing R] [IsLocalRing R] {I : Ideal R} [Nontrivial (R ⧸ I)] :
+    IsLocalRing (R ⧸ I) := IsLocalRing.of_surjective' (Ideal.Quotient.mk I) Ideal.Quotient.mk_surjective
 
 ----------------------------------------------------------------------------
 
@@ -63,8 +66,8 @@ theorem minGenerators_eq_dimCotangentSpace {R : Type*} [CommRing R] [IsLocalRing
 --Regular local rings
 
 --A regular local ring is a noetherian local ring R with  dim m/m^2 = dim R
-def IsRegularLocalRing (R : Type*) [CommRing R] [IsLocalRing R] [IsNoetherianRing R] : Prop :=
-  Module.finrank (ResidueField R) (CotangentSpace R) = ringKrullDim R
+class IsRegularLocalRing (R : Type*) [CommRing R] : Prop extends IsLocalRing R, IsNoetherianRing R where
+  reg : Module.finrank (ResidueField R) (CotangentSpace R) = ringKrullDim R
 --By minGenerators_eq_dimCotangentSpace, this definition is equivalent to
 --requiring minGenerators (max R) = ringKrullDim R
 
@@ -132,32 +135,94 @@ lemma IsLocalRing_IsNoetherianRing_span_singleton_IsPrime_not_minimalPrimes_IsDo
 {R : Type*} [CommRing R] [IsLocalRing R] [IsNoetherianRing R] (x : R) [(Ideal.span {x}).IsPrime] (notMin : ¬Ideal.span {x} ∈ minimalPrimes R) :
     IsDomain R := by
 
-  -- Step : If Ideal.span {x} is not minimal then there exists a minimal prime q properly contiaining Ideal.span {x}
-  -- The Mathlib theorem to use here is (`Ideal.exists_minimalPrimes_le`)
+  have zero_in_x : ⊥ ≤ Ideal.span {x} := bot_le
+  have min_in_x := Ideal.exists_minimalPrimes_le zero_in_x
+  obtain ⟨q , hq1, hq2⟩ := min_in_x
 
-  -- Step : Show that q ⊆ Ideal.span {x^n} for all n: By induction let y ∈ q ⊆ (x^n). Then y = rx^n. Since x ∉ q, x^n ∉ q so r ∈ q. Since we
-  -- have r ∈ q ⊆ (x), y ∈ (x^(n+1)) and we are done.
+  have x_not_in_q : x ∉ q := by
+    by_contra hx
+    have : Ideal.span {x} ≤ q := (Ideal.span_singleton_le_iff_mem q).mpr hx
+    have := le_antisymm_iff.mpr ⟨hq2, this⟩
+    rw[this] at hq1
+    exact notMin hq1
 
-  -- Step : Use Krull's Intersection Theorem (`Ideal.iInf_pow_eq_bot_of_localRing`) to show that q = ⊥ (⊥ is the zero ideal and it is written \bot)
+  have q_in_x_pow : ∀ n : ℕ, q ≤ Ideal.span {x}^n := by
+    intro n
+    induction n with
+    | zero =>
+      rw[Ideal.span_singleton_pow x 0]
+      rw[pow_zero x]
+      rw[Ideal.span_singleton_one]
+      exact fun ⦃x⦄ a ↦ trivial
 
-  -- Step : Use that q = ⊥ is prime to prove that R is a domain
-  sorry
+    | succ n ih =>
+      intro y hy
+      rw[Ideal.span_singleton_pow]
+      rw[Ideal.span_singleton_pow] at ih
+      obtain ⟨r , hr⟩ := Ideal.mem_span_singleton'.mp (ih hy)
+      have qPrime : q.IsPrime := Ideal.minimalPrimes_isPrime hq1
+      have xpow_not_q : x^n ∉ q := by
+        by_contra hxp
+        have := Ideal.IsPrime.mem_of_pow_mem qPrime n hxp
+        contradiction
+
+      rw[← hr] at hy
+      have : r ∈ q := by
+        have := Ideal.IsPrime.mem_or_mem qPrime hy
+        subst hr
+        simp_all only [bot_le, or_false]
+
+      obtain ⟨a , ha⟩ := Ideal.mem_span_singleton'.mp (hq2 this)
+      apply Ideal.mem_span_singleton'.mpr
+      rw[← ha] at hr
+      use a
+      rw[← hr]
+      ring
+
+  have x_not_top : Ideal.span {x} ≠ ⊤ := Ideal.IsPrime.ne_top ‹_›
+
+  have KIT := Ideal.iInf_pow_eq_bot_of_isLocalRing (Ideal.span {x}) ‹_›
+
+  have qZero : q ≤ ⊥ := by
+    intro y hy
+    have hyx : ∀(n : ℕ), y ∈ Ideal.span {x} ^ n := by
+      intro n
+      exact q_in_x_pow n hy
+
+    have := Ideal.mem_iInf.mpr hyx
+    rw[KIT] at this
+    assumption
+
+  have qeqZero : q = ⊥ := (Submodule.eq_bot_iff q).mpr qZero
+  have qPrime : q.IsPrime := Ideal.minimalPrimes_isPrime hq1
+  rw[qeqZero] at qPrime
+  exact IsDomain.of_bot_isPrime R
+
+
+lemma le_minimalPrimes
+{R : Type*} [CommRing R] {I : Ideal R} [I.IsPrime] {P : Ideal R} (hP : P ∈ minimalPrimes R) (hI : I ≤ P) :
+    I = P := by
+
+  rw[minimalPrimes_eq_minimals] at hP
+  obtain ⟨hP1, hP2⟩ := hP
+  have := hP2 ‹_› hI
+  exact le_antisymm_iff.mpr ⟨hI, this⟩
 
 
 --The dim=n case (stated so that we can use induction): If R is a regular local
 --ring of dim R=n, then R is a domain.
-theorem IsRegularLocalRing_IsDomain_Fixed_Dim :
-    ∀(n : ℕ)(R : Type*) [CommRing R] [IsLocalRing R] [IsNoetherianRing R] (h : IsRegularLocalRing R) (hn : minGenerators (max R) = n), IsDomain R := by
+theorem IsRegularLocalRing_IsDomain_Induction :
+    ∀(n : ℕ)(R : Type*) [CommRing R] [IsRegularLocalRing R] (hn : minGenerators (max R) = n), IsDomain R := by
   intro n
 
   -- We do induction on the number of generators of max R
   induction n with
   | zero =>
-    intro R _ _ _ hR hm
+    intro R _ hR hm
     exact IsRegularLocalRing_IsDomain_Dim_zero R hm
 
   | succ n ih =>
-    intro R _ _ _ hR hn
+    intro R _ hR hn
     by_contra hR_not_Dom
 
     -- Our goal is to show that max R is the union of (max R)^2 along with the minimal primes of R.
@@ -167,9 +232,8 @@ theorem IsRegularLocalRing_IsDomain_Fixed_Dim :
       have xPrime : (Ideal.span {x}).IsPrime := by
         apply (Ideal.Quotient.isDomain_iff_prime (Ideal.span {x})).mp
 
-        have _ : IsLocalRing (R ⧸ (Ideal.span {x})) := by sorry
-        -- It will likely be easier to prove this is a seperate lemma. Something like: If R is a local ring and x ∈ max R
-        -- then (R ⧸ Ideal.span {x}) is a local ring. Mathlib seems to be lacking in results about quotient rings for the moment.
+        have _ : Nontrivial (R ⧸ (Ideal.span {x})) := Ideal.Quotient.nontrivial (Ideal.span_singleton_ne_top hx)
+
 
         have minGenquot : minGenerators (max (R ⧸ (Ideal.span {x}))) = n := by sorry
 
@@ -179,7 +243,7 @@ theorem IsRegularLocalRing_IsDomain_Fixed_Dim :
         -- If R is a noetherian local ring and x ∈ max R then Dim (R ⧸ x) ≥ Dim R - 1
         -- This along with Krull's Height Theorem (This one has been PR'd to Mathlib) applied to minGenquot should prove it.
 
-        exact ih (R ⧸ (Ideal.span {x})) quotReg minGenquot
+        exact ih (R ⧸ (Ideal.span {x})) minGenquot
 
       by_contra hx3
 
@@ -191,21 +255,87 @@ theorem IsRegularLocalRing_IsDomain_Fixed_Dim :
 
     -- Step : Use `minimalPrimes.finite_of_isNoetherianRing` to show the union in the previous step is a finite union.
 
-    -- Step : Apply Prime Avoidance `Ideal.subset_union_prime` to show that (max R) is contained in a minimal prime.
+    let S' := (minimalPrimes R) ∪ {(max R)^2}
+    have sFin : S'.Finite := Set.Finite.union (minimalPrimes.finite_of_isNoetherianRing R) (Set.finite_singleton ((max R) ^ 2))
+
+    let S := Set.Finite.toFinset sFin
+
+    have hp : (∀ i ∈ S, (i ≠ (max R)^2) → (i ≠ (max R)^2) → i.IsPrime) := by
+      intro I hI hm1 _
+      have : I ∈ S' := (Set.Finite.mem_toFinset sFin).mp hI
+      obtain h1|h2 := this
+      exact Ideal.minimalPrimes_isPrime h1
+      contradiction
+
+-- Step : Apply Prime Avoidance `Ideal.subset_union_prime` to show that (max R) is contained in a minimal prime
+-- or (max R) is contained in (max R)^2
+    have maxinmin : ∃ i ∈ S, (max R) ≤ i := by
+      apply (@Ideal.subset_union_prime (Ideal R) R _ S (λ x => x) ((max R)^2) ((max R)^2) hp (max R)).mp
+      intro x hx
+      obtain xinm2|xnotinm2 := Classical.em (x ∈ (max R) ^ 2)
+      refine Set.mem_iUnion₂.mpr ?_
+      use ((max R)^2)
+      use (Set.Finite.mem_toFinset sFin).mpr (Set.mem_union_right (minimalPrimes R) rfl)
+      exact xinm2
+      have xminP := isMinPrime x hx xnotinm2
+      refine Set.mem_iUnion₂.mpr ?_
+      use Ideal.span {x}
+      use (Set.Finite.mem_toFinset sFin).mpr (Set.mem_union_left {(max R) ^ 2} (isMinPrime x hx xnotinm2))
+      exact Ideal.mem_span_singleton_self x
+
+
+    obtain ⟨P, hP1, hP2⟩ := maxinmin
+  -- Step : Use the fact that the Krull Dimension of R is not zero to reach a contradiction.
 
     have dimNotZero : ringKrullDim R ≠ 0 := by
-      rw[←hR, ←minGenerators_eq_dimCotangentSpace,hn]
+      rw[←hR.reg, ←minGenerators_eq_dimCotangentSpace,hn]
       have : n+1 ≠ 0 := by exact Ne.symm (Nat.zero_ne_add_one n)
       exact Nat.cast_ne_zero.mpr this
-    -- Step : Use the fact that the Krull Dimension of R is not zero to reach a contradiction.
 
-    sorry
+    apply dimNotZero
+
+    clear hn hR_not_Dom isMinPrime dimNotZero hp
+
+    obtain h1|h2 := (Set.Finite.mem_toFinset sFin).mp hP1
+
+    clear hP1 S sFin S'
+
+    rw[← ringKrullDimZero_iff_ringKrullDim_eq_zero]
+    refine Ring.KrullDimLE.mk₀ ?_
+    intro I hI
+    have : I ≤ (max R) := by exact IsLocalRing.le_maximalIdeal (Ideal.IsPrime.ne_top hI)
+    have : I ≤ P := by exact fun ⦃x⦄ a ↦ hP2 (this a)
+    have IP := le_minimalPrimes ‹_› this
+    have mP := le_minimalPrimes ‹_› hP2
+    have Im : I = (max R) := by
+      rw[IP, mP]
+    rw[Im]
+    exact IsLocalRing.maximalIdeal.isMaximal R
+
+    have hm : (max R) ≤ (max R)^2 := by
+      simp_all only [Set.union_singleton, Set.Finite.mem_toFinset, Set.mem_insert_iff, Set.mem_singleton_iff, true_or, S, S']
+
+    have _ : IsNoetherianRing R := by infer_instance
+
+    have mFG := (isNoetherianRing_iff_ideal_fg R).mp ‹_› (max R)
+    have mlem2 : (max R) ≤ (max R) • (max R) := by
+      have : (max R) • (max R) = (max R) * (max R) := rfl
+      rw[this, Eq.symm (pow_two max R)]
+      exact hm
+
+    have mlejac : (max R) ≤ Ideal.jacobson ⊥ := by
+      have : (⊥ : Ideal R) ≠ ⊤ := bot_ne_top
+      rw[IsLocalRing.jacobson_eq_maximalIdeal ⊥ this]
+
+    have mbot := @Submodule.eq_bot_of_le_smul_of_le_jacobson_bot R R _ _ _ (max R) (max R) mFG mlem2 mlejac
+
+    exact ringKrullDim_eq_zero_of_isField (IsLocalRing.isField_iff_maximalIdeal_eq.mpr mbot)
 
 
 theorem IsRegularLocalRing_IsDomain
-{R : Type*} [CommRing R] [IsLocalRing R] [IsNoetherianRing R] (h : IsRegularLocalRing R) :
+(R : Type*) [CommRing R] [IsRegularLocalRing R] :
     IsDomain R := by
-  exact IsRegularLocalRing_IsDomain_Fixed_Dim (minGenerators (max R)) R h rfl
+  exact IsRegularLocalRing_IsDomain_Induction (minGenerators (max R)) R rfl
 
 
 
