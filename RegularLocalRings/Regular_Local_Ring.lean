@@ -1,5 +1,5 @@
 import Mathlib
-import «LeanMath».LocalRingDimension
+import «RegularLocalRings».LocalRingDimension
 
 
 local notation3:max "max" A => (IsLocalRing.maximalIdeal A)
