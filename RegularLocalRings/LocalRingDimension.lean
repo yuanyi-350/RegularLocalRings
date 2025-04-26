@@ -1,6 +1,6 @@
 import Mathlib
-import «LeanMath».KrullsHeightTheorem
-import «LeanMath».EmbDim
+import «RegularLocalRings».KrullsHeightTheorem
+import «RegularLocalRings».EmbDim
 
 local notation3:max "max" A => (IsLocalRing.maximalIdeal A)
 
