@@ -32,9 +32,84 @@ noncomputable def IsLocalRing.EmbDim (R : Type*) [CommRing R] [IsLocalRing R] [I
 -- This is essentially Nakayama's Lemma in the special case of a Local Ring
 #check IsLocalRing.CotangentSpace.span_image_eq_top_iff
 
-lemma SpanFinRankOfSubmodule_eq_spanFinrankOfTop (R : Type*) [CommRing R] [IsNoetherianRing R] (M : Type*) [AddCommGroup M] [Module R M] [Module.Finite R M] (N : Submodule R M) :
+open Submodule
+open Cardinal
+
+lemma Submodule.spanRank_inj_map_le.{u} {R : Type*} [CommRing R] {M : Type u} {N : Type u}
+[AddCommGroup M] [Module R M] [AddCommGroup N] [Module R N] (σ : M →ₗ[R] N) (p : Submodule R M)
+(hσ : Function.Injective σ) :
+    (map σ p).spanRank ≤ p.spanRank := by
+  obtain ⟨s, hs1, hs2⟩ := Submodule.exists_span_set_card_eq_spanRank p
+  let s' : Set N := σ '' s
+  have : #s = #s' := Eq.symm (mk_image_eq hσ)
+  have a := Submodule.map_span σ s
+  rw[hs2] at a
+  rw[← hs1]
+  have b := @Submodule.spanRank_span_le_card R N _ _ _ s'
+  rw[← a] at b
+  rw[this]
+  exact b
+
+lemma Submodule.spanRank_inj_map_le'.{u} {R : Type*} [CommRing R] {M : Type u} {N : Type u}
+[AddCommGroup M] [Module R M] [AddCommGroup N] [Module R N] (σ : M →ₗ[R] N) (p : Submodule R M)
+(hσ : Function.Injective σ) :
+    p.spanRank ≤ (map σ p).spanRank := by
+  obtain ⟨s, hs1, hs2⟩ := Submodule.exists_span_set_card_eq_spanRank (map σ p)
+  let s' : Set M := σ⁻¹' s
+  have hss' : σ '' s' = s := by
+    ext x
+    constructor
+    . rintro ⟨a, ⟨ha1, ha2⟩ ⟩
+      rw [← ha2]
+      exact ha1
+    . intro hx
+      have a : x ∈ span R s := by exact mem_span.mpr fun p a ↦ a hx
+      rw[hs2] at a
+      obtain ⟨y, hy1, hy2⟩ := Submodule.mem_map.mp a
+      have : y ∈ s' := by
+        refine Set.mem_preimage.mpr ?_
+        rw[hy2]
+        exact hx
+      use y
+
+  have s's : #s' = #s := by
+    rw[← hss']
+    exact Eq.symm (mk_image_eq hσ)
+  have b := @Submodule.spanRank_span_le_card R M _ _ _ s'
+  have a := Submodule.map_span σ s'
+  rw[hss', hs2] at a
+  rw[Submodule.map_injective_of_injective hσ a] at b
+  rw[s's, hs1] at b
+  exact b
+
+
+lemma Submodule.spanRank_inj_map.{u} {R : Type*} [CommRing R] {M : Type u} {N : Type u}
+[AddCommGroup M] [Module R M] [AddCommGroup N] [Module R N] (σ : M →ₗ[R] N) (p : Submodule R M)
+(hσ : Function.Injective σ) :
+    p.spanRank = (map σ p).spanRank :=
+  le_antisymm_iff.mpr ⟨Submodule.spanRank_inj_map_le' σ p hσ, Submodule.spanRank_inj_map_le σ p hσ⟩
+
+
+lemma SpanRankOfSubmodule_eq_spanFinrankOfTop {R : Type*} [CommRing R] {M : Type*}
+[AddCommGroup M] [Module R M] (N : Submodule R M) :
+    Submodule.spanRank N = (⊤ : Submodule R N).spanRank := by
+  have h1 := Submodule.map_subtype_top N
+  have h2 := Submodule.spanRank_inj_map N.subtype (⊤ : Submodule R N) (Submodule.injective_subtype N)
+  rw[h2]
+  rw[h1]
+
+lemma SpanFinRankOfSubmodule_eq_spanFinrankOfTop (R : Type*) [CommRing R] [IsNoetherianRing R] (M : Type*)
+[AddCommGroup M] [Module R M] [Module.Finite R M] (N : Submodule R M) :
   Submodule.spanFinrank N = (⊤ : Submodule R N).spanFinrank := by
-  sorry
+
+  have a : N.FG := IsNoetherian.noetherian N
+  have b : (⊤ : Submodule R N).FG := IsNoetherian.noetherian ⊤
+
+  have : @Nat.cast Cardinal.{u_2} instNatCast N.spanFinrank = @Nat.cast Cardinal.{u_2} instNatCast (⊤ : Submodule R N).spanFinrank := by
+    rw[← Submodule.fg_iff_spanRank_eq_spanFinrank.mpr a, ← Submodule.fg_iff_spanRank_eq_spanFinrank.mpr b]
+    exact SpanRankOfSubmodule_eq_spanFinrankOfTop N
+  exact Nat.cast_injective this
+
   -- have h1 : N ≃ₗ[R] (⊤ : Submodule R N) := Submodule.topEquiv.symm
   -- unfold Submodule.spanFinrank
   -- have hh2 : N.spanRank = (⊤ : Submodule R N).spanRank := by
@@ -89,7 +164,16 @@ theorem IsLocalRing.Embdim_eq_spanFinrank_maximal_ideal (R : Type*) [CommRing R]
       . rw [← h]
         exact hs1
       . --missing detail: need to go from span(s) = max R to span(s') = (⊤ : Submodule R (max R))
-        sorry
+        have hinc : inc = (max R).subtype := rfl
+        have hsp := Submodule.map_span (max R).subtype s'
+        rw[← hinc, hs', hs2] at hsp
+        have mptop := Submodule.map_subtype_top (max R)
+        rw[hinc] at inc_injective
+        have inj := Submodule.map_injective_of_injective inc_injective
+        have : map (Submodule.subtype max R) (span R s') = map (Submodule.subtype max R) ⊤ := by
+          rw[hsp, mptop]
+        exact inj this
+
     obtain ⟨m_gens, m_gens_card, hm_gens_span⟩ := h1
     have m_gens_finite : m_gens.Finite := Set.finite_of_encard_eq_coe m_gens_card
     have m_gens_card2 : m_gens.ncard = (max R).spanFinrank := by
@@ -200,3 +284,13 @@ theorem IsLocalRing.Embdim_Quotient_span_singleton
   have h_iso_residue_fields : ResidueField (R ⧸ Ideal.span {x}) ≃ k := by
     sorry
   sorry
+
+variable (R : Type*) [CommRing R] (N : Type*) [AddCommMonoid N] [Module R N] (M : Submodule R N)  (x : M)
+
+#check x
+#check M.subtype x
+#check Function.Embedding.subtype
+#check M.subtype
+
+#check (Submodule.MapSubtype.relIso M).toFun ⊤
+
