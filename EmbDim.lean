@@ -32,9 +32,10 @@ noncomputable def IsLocalRing.EmbDim (R : Type*) [CommRing R] [IsLocalRing R] [I
 -- This is essentially Nakayama's Lemma in the special case of a Local Ring
 #check IsLocalRing.CotangentSpace.span_image_eq_top_iff
 
-open Submodule
-open Cardinal
+--open Submodule
+open Cardinal -- allows us to write `#s` instead of `Cardinal.mk s`
 
+--Lemma: if σ : M → N is an injective R-module map and p ⊆ M is a submodule, then spanRank(σ(p)) ≤ spanRank(p).
 lemma Submodule.spanRank_inj_map_le.{u} {R : Type*} [CommRing R] {M : Type u} {N : Type u}
 [AddCommGroup M] [Module R M] [AddCommGroup N] [Module R N] (σ : M →ₗ[R] N) (p : Submodule R M)
 (hσ : Function.Injective σ) :
@@ -50,6 +51,7 @@ lemma Submodule.spanRank_inj_map_le.{u} {R : Type*} [CommRing R] {M : Type u} {N
   rw[this]
   exact b
 
+--Lemma: if σ : M → N is an injective R-module map and p ⊆ M is a submodule, then spanRank(p) ≤ spanRank(σ(p)).
 lemma Submodule.spanRank_inj_map_le'.{u} {R : Type*} [CommRing R] {M : Type u} {N : Type u}
 [AddCommGroup M] [Module R M] [AddCommGroup N] [Module R N] (σ : M →ₗ[R] N) (p : Submodule R M)
 (hσ : Function.Injective σ) :
@@ -82,14 +84,14 @@ lemma Submodule.spanRank_inj_map_le'.{u} {R : Type*} [CommRing R] {M : Type u} {
   rw[s's, hs1] at b
   exact b
 
-
+--Lemma: if σ : M → N is an injective R-module map and p ⊆ M is a submodule, then spanRank(p) = spanRank(σ(p)).
 lemma Submodule.spanRank_inj_map.{u} {R : Type*} [CommRing R] {M : Type u} {N : Type u}
 [AddCommGroup M] [Module R M] [AddCommGroup N] [Module R N] (σ : M →ₗ[R] N) (p : Submodule R M)
 (hσ : Function.Injective σ) :
     p.spanRank = (map σ p).spanRank :=
   le_antisymm_iff.mpr ⟨Submodule.spanRank_inj_map_le' σ p hσ, Submodule.spanRank_inj_map_le σ p hσ⟩
 
-
+--Lemma: if M is an R-module and N ⊆ M is an R-submodule, then spanRank(N) = spanRank(⊤ : Submodule R N).  That is, the span rank of N as a submodule of M is the same as the span rank of N as a submodule of itself.
 lemma SpanRankOfSubmodule_eq_spanFinrankOfTop {R : Type*} [CommRing R] {M : Type*}
 [AddCommGroup M] [Module R M] (N : Submodule R M) :
     Submodule.spanRank N = (⊤ : Submodule R N).spanRank := by
@@ -98,24 +100,22 @@ lemma SpanRankOfSubmodule_eq_spanFinrankOfTop {R : Type*} [CommRing R] {M : Type
   rw[h2]
   rw[h1]
 
+--Lemma: If R is a noetherian ring, M is a finite R-module, and N ⊆ M is an R-submodule, then spanFinRank(N) = spanFinRank(⊤ : Submodule R N).  That is, the spanFinrank of N as a submodule of M is the same as the spanFinrank of N as a submodule of itself.
 lemma SpanFinRankOfSubmodule_eq_spanFinrankOfTop (R : Type*) [CommRing R] [IsNoetherianRing R] (M : Type*)
 [AddCommGroup M] [Module R M] [Module.Finite R M] (N : Submodule R M) :
   Submodule.spanFinrank N = (⊤ : Submodule R N).spanFinrank := by
+  have N_fg : N.FG := IsNoetherian.noetherian N
+  have top_fg : (⊤ : Submodule R N).FG := IsNoetherian.noetherian ⊤
+  have h_spanRank : N.spanRank = (⊤ : Submodule R N).spanRank := SpanRankOfSubmodule_eq_spanFinrankOfTop N
+  have N_spanRank_eq_spanFinrank : N.spanRank = N.spanFinrank := Submodule.fg_iff_spanRank_eq_spanFinrank.mpr N_fg
+  have top_spanRank_eq_spanFinrank : (⊤ : Submodule R N).spanRank = (⊤ : Submodule R N).spanFinrank := Submodule.fg_iff_spanRank_eq_spanFinrank.mpr top_fg
+  rw [N_spanRank_eq_spanFinrank,top_spanRank_eq_spanFinrank] at h_spanRank
+  exact Nat.cast_injective h_spanRank
 
-  have a : N.FG := IsNoetherian.noetherian N
-  have b : (⊤ : Submodule R N).FG := IsNoetherian.noetherian ⊤
 
-  have : @Nat.cast Cardinal.{u_2} instNatCast N.spanFinrank = @Nat.cast Cardinal.{u_2} instNatCast (⊤ : Submodule R N).spanFinrank := by
-    rw[← Submodule.fg_iff_spanRank_eq_spanFinrank.mpr a, ← Submodule.fg_iff_spanRank_eq_spanFinrank.mpr b]
-    exact SpanRankOfSubmodule_eq_spanFinrankOfTop N
-  exact Nat.cast_injective this
 
-  -- have h1 : N ≃ₗ[R] (⊤ : Submodule R N) := Submodule.topEquiv.symm
-  -- unfold Submodule.spanFinrank
-  -- have hh2 : N.spanRank = (⊤ : Submodule R N).spanRank := by
-  --   sorry
 
---Lemma: finrank(V) = spanFinrank(V)
+--Lemma: For a finite dimensional vector space over a field, finrank(V) = spanFinrank(V)
 lemma Finrank_eq_spanFinrankOfTop (k : Type*) [Field k]  (V : Type*) [AddCommGroup V] [Module k V] [Module.Finite k V] : Module.finrank k V = (⊤ : Submodule k V).spanFinrank := by
   --rank(V) = spanRank(V)
   have rank_eq_spanRank : Module.rank k V = (⊤ : Submodule k V).spanRank := Submodule.rank_eq_spanRank_of_free
@@ -129,7 +129,8 @@ lemma Finrank_eq_spanFinrankOfTop (k : Type*) [Field k]  (V : Type*) [AddCommGro
   rw [rank_eq_spanRank, spanrank_eq_spanFinrank, Nat.cast_inj] at finrank_eq_rank
   exact finrank_eq_rank
 
---finrank(m/m^2) = spanFinrank(m)
+--Theorem: For a noetherian local ring (R,m), spanFinrank(m) = dim m/m^2
+--To do: prove a more general version of Nakayama's lemma for a finitely graded module M over a noetherian local ring (r,m): spanFinrank(M) = dim M/mM, where spanFinrank(M):=spanFinrank(⊤: Submodule R M)
 theorem IsLocalRing.Embdim_eq_spanFinrank_maximal_ideal (R : Type*) [CommRing R] [IsLocalRing R] [IsNoetherianRing R] :
     IsLocalRing.EmbDim R = (max R).spanFinrank := by
   rw [Nat.eq_iff_le_and_ge]
@@ -145,35 +146,29 @@ theorem IsLocalRing.Embdim_eq_spanFinrank_maximal_ideal (R : Type*) [CommRing R]
       obtain ⟨s, hs1, hs2⟩ := m_fg
       have hs3 : s ⊆  (max R) := by
         rw [← Submodule.span_le, hs2]
-      let inc := fun (x : max R) => (x : R)
+      --let inc := fun (x : max R) => (x : R)
+      let inc := (max R).subtype
       let s' : Set (max R) := inc⁻¹' s
+      have hs' : (inc '' s') = s := by aesop
       use s'
-      have hs' : (inc '' s') = s := by
-        ext x
-        constructor
-        . rintro ⟨a, ⟨ha1, ha2⟩ ⟩
-          rw [← ha2]
-          exact ha1
-        . intro hx
-          have h1: x ∈ ↑max R := hs3 hx
-          exact ⟨⟨x, h1⟩, hx, rfl⟩
       have inc_injective : Function.Injective inc := Subtype.val_injective
-      have h := Function.Injective.encard_image inc_injective s'
-      rw [hs'] at h
+      have card_s_eq_card_s' := Function.Injective.encard_image inc_injective s'
+      rw [hs'] at card_s_eq_card_s'
       constructor
-      . rw [← h]
+      . --s'.encard = ↑(Submodule.spanFinrank max R)
+        rw [← card_s_eq_card_s']
         exact hs1
-      . --missing detail: need to go from span(s) = max R to span(s') = (⊤ : Submodule R (max R))
-        have hinc : inc = (max R).subtype := rfl
-        have hsp := Submodule.map_span (max R).subtype s'
-        rw[← hinc, hs', hs2] at hsp
+      . --Submodule.span R s' = ⊤
+        have hsp := Submodule.map_span inc s'
+        rw[hs', hs2] at hsp
         have mptop := Submodule.map_subtype_top (max R)
-        rw[hinc] at inc_injective
         have inj := Submodule.map_injective_of_injective inc_injective
-        have : map (Submodule.subtype max R) (span R s') = map (Submodule.subtype max R) ⊤ := by
+        have : Submodule.map inc (Submodule.span R s') = Submodule.map inc ⊤ := by
           rw[hsp, mptop]
         exact inj this
-
+    --let m_gens be a set generators of m such that #m_gens = spanFinrank(m)
+    --Strategy: (1) show that im_m_gens := image of m_gens under m -> m/m^2 is a generating set
+    --          (2) show that dim(m/m^3) ≤ #im_m_gens = #m_gens = spanFinrank(m)
     obtain ⟨m_gens, m_gens_card, hm_gens_span⟩ := h1
     have m_gens_finite : m_gens.Finite := Set.finite_of_encard_eq_coe m_gens_card
     have m_gens_card2 : m_gens.ncard = (max R).spanFinrank := by
@@ -293,4 +288,3 @@ variable (R : Type*) [CommRing R] (N : Type*) [AddCommMonoid N] [Module R N] (M 
 #check M.subtype
 
 #check (Submodule.MapSubtype.relIso M).toFun ⊤
-

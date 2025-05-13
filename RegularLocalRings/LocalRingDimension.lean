@@ -35,7 +35,7 @@ instance {R : Type*} [CommRing R] [IsLocalRing R] [IsNoetherianRing R] :
   contradiction
 
 
--- Coersion to help when coparing ringKrullDim and finRingKrullDim
+-- Coersion to help when comparing ringKrullDim and finRingKrullDim
 lemma NatCast_WithBot_le (n m : ℕ) (h : (n : WithBot ℕ∞) ≤ m) : n ≤ m := by
   simp at h ⊢
   exact h
