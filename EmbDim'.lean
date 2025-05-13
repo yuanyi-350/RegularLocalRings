@@ -367,7 +367,7 @@ theorem IsLocalRing.Embdim_Quotient_span_singleton'.{u}
   simp only [Nat.cast_add, Nat.cast_one]
   exact sreq
 
-/--/
+/-
 theorem IsLocalRing.Embdim_Quotient_span_singleton
 {R : Type*} {x : R} [CommRing R] [IsLocalRing R] [IsNoetherianRing R]
 [Nontrivial (R ⧸ Ideal.span {x})] (hx1 : x ∈ (max R)) (hx2 : x ∉ ((max R)^2)) :
@@ -396,3 +396,4 @@ variable (R : Type*) [CommRing R] (N : Type*) [AddCommMonoid N] [Module R N] (M 
 #check M.subtype
 
 #check (Submodule.MapSubtype.relIso M).toFun ⊤
+-/
