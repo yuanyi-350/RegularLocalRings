@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Brian Nugent, Jarod Alper
 -/
 
-import LeanMath.LocalRingDimension
+import «RegularLocalRings».LocalRingDimension
 import Mathlib.RingTheory.DiscreteValuationRing.TFAE
 import Mathlib.RingTheory.KrullDimension.Field
 
